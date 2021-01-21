@@ -4,12 +4,15 @@ from geopy.geocoders import Nominatim
 from geopy.extra.rate_limiter import RateLimiter
 import os
 import json
-
+import requests
 
 def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
     api = overpy.Overpass()
-    geolocator = Nominatim(user_agent="api.openindoor.io 4.0.0 contact contact@openindoor.io", timeout=2)
-    rate_limiter = RateLimiter(geolocator.reverse, min_delay_seconds=1)
+    API_KEY = 'test_Sk3dJIAbXvw7c7SwGzKpdP92nbZapEnScwMioWZK'
+    headers = {
+        'X-NTK-KEY': API_KEY,
+    }
+    url = 'https://api.nettoolkit.com/v1/geo/reverse-geocodes?'
     features_list = []
     way_ids = []
     result = api.query(f"""(
@@ -68,19 +71,29 @@ def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
         os.mkdir('out_files')
     os.chdir('out_files')
 
+    nodes_with_info = {}
+
     for feature in features_list:
         way_id = feature['properties']['id']
-        location = rate_limiter(f"{feature['geometry']['coordinates'][0][0][0]}, "
-                                f"{feature['geometry']['coordinates'][0][0][1]}")
-        address_items = list(location.raw['address'].items())
-        name = address_items[0][1] + ' - ' + address_items[0][0] + ', ' + address_items[1][1] + ' - ' + address_items[1][0]
-        if 'city' in location.raw['address']:
-            city = location.raw['address']['city']
-        elif 'town' in location.raw['address']:
-            city = location.raw['address']['town']
-        else:
-            city = location.raw['address']['municipality']
-        country = location.raw['address']['country']
+        for node in feature['geometry']['coordinates'][0]:
+            lat = node[0]
+            lon = node[1]
+            if f'{lat}{lon}' in nodes_with_info:
+                city = nodes_with_info[f'{lat}{lon}']['city']
+                country = nodes_with_info[f'{lat}{lon}']['country']
+                name = nodes_with_info[f'{lat}{lon}']['name']
+            else:
+                geocode_results = requests.get(url + f'latitude={lat}&longitude={lon}', headers=headers)
+                jsson = json.loads(geocode_results.text)
+                try:
+                    city = jsson['results'][0]['city']
+                    country = jsson['results'][0]['country']
+                    name = f"Street: {jsson['results'][0]['street']}, house_number: {jsson['results'][0]['house_number']}"
+                    node_info = {'city': city, 'country': country, 'name': name}
+                    nodes_with_info[f'{lat}{lon}'] = node_info
+                    break
+                except:
+                    continue
         feature['properties']['city'] = city
         feature['properties']['country'] = country
         feature['properties']['name'] = name
@@ -98,7 +111,4 @@ def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
 coor_box_1 = ('40.6994', '-74.0241', '40.7445', '-73.9653') # New York, USA
 coor_box_2 = ('48.0770', '-1.7261', '48.1497', '-1.5603') # Rennes, France
 
-find_bounds_of_buildings(coor_box_2[0], coor_box_2[1], coor_box_2[2], coor_box_2[3])
-
-
-
+find_bounds_of_buildings(coor_box_1[0], coor_box_1[1], coor_box_1[2], coor_box_1[3])
