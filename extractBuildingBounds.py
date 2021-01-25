@@ -8,16 +8,16 @@ import requests
 
 def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
     api = overpy.Overpass()
-    API_KEY = 'test_Sk3dJIAbXvw7c7SwGzKpdP92nbZapEnScwMioWZK'
+    API_KEY = 'Xr1UKH01N85JvPkt4qknPmGvemfJws7qX7daoENb'
     headers = {
         'X-NTK-KEY': API_KEY,
     }
     url = 'https://api.nettoolkit.com/v1/geo/reverse-geocodes?'
     features_list = []
     way_ids = []
+    #   relation['building']['level']({small_lat}, {small_lon}, {big_lat}, {big_lon});
     result = api.query(f"""(
       way['building']['level']({small_lat}, {small_lon}, {big_lat}, {big_lon});
-      relation['building']['level']({small_lat}, {small_lon}, {big_lat}, {big_lon});
     );
     (._;>;);
     out;""")
@@ -51,7 +51,7 @@ def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
         else:
             coordinates = []
             for node in way.nodes:
-                coordinates.append([float(node.lat), float(node.lon)])
+                coordinates.append([float(node.lon), float(node.lat)])
             geometry = {
                 'type': 'Polygon',
                 'coordinates': [coordinates],
@@ -85,6 +85,9 @@ def find_bounds_of_buildings(small_lat, small_lon, big_lat, big_lon):
             else:
                 geocode_results = requests.get(url + f'latitude={lat}&longitude={lon}', headers=headers)
                 jsson = json.loads(geocode_results.text)
+                city = "no_city"
+                country = "no_country"
+                name = "no_name"
                 try:
                     city = jsson['results'][0]['city']
                     country = jsson['results'][0]['country']
